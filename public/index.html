@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Todo App</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Inter, sans-serif;
+            background: #f5f5f5;
+            color: #111827;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            margin: 60px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin-bottom: 24px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 12px;
+        }
+
+        input {
+            flex: 1;
+            height: 56px;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 0 18px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #111827;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .add-btn {
+            border: none;
+            background: #111827;
+            color: white;
+            padding: 0 28px;
+            border-radius: 14px;
+            font-size: 15px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin: 24px 0;
+        }
+
+        .filter {
+            border: none;
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 10px 18px;
+            border-radius: 999px;
+        }
+
+        .filter.active {
+            background: #111827;
+            color: white;
+        }
+
+        .todo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .todo {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        .todo-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .check {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            cursor: pointer;
+        }
+
+        .todo.completed .check {
+            background: #111827;
+            border-color: #111827;
+        }
+
+        .todo.completed .text {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .delete-btn {
+            width: 38px;
+            height: 38px;
+            border: none;
+            border-radius: 10px;
+            background: #ef4444;
+            color: white;
+            font-size: 16px;
+        }
+
+        .empty {
+            text-align: center;
+            margin-top: 50px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Tasks</h1>
+
+        <div class="input-area">
+            <input id="todoInput" placeholder="Write a task..." />
+
+            <button class="add-btn" id="addBtn">Add</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter active" data-filter="all">All</button>
+
+            <button class="filter" data-filter="active">Active</button>
+
+            <button class="filter" data-filter="completed">Completed</button>
+        </div>
+
+        <div class="todo-list" id="todoList"></div>
+    </div>
+
+    <script>
+        const API = "/api/todos";
+
+        const todoInput = document.getElementById("todoInput");
+
+        const addBtn = document.getElementById("addBtn");
+
+        const todoList = document.getElementById("todoList");
+
+        const filterButtons = document.querySelectorAll(".filter");
+
+        let todos = [];
+
+        let currentFilter = "all";
+
+        async function fetchTodos() {
+            const res = await fetch(API);
+
+            todos = await res.json();
+
+            renderTodos();
+        }
+
+        async function addTodo() {
+            const title = todoInput.value.trim();
+
+            if (!title) return;
+
+            await fetch(API, {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                },
+
+                body: JSON.stringify({
+                    title,
+                }),
+            });
+
+            todoInput.value = "";
+
+            fetchTodos();
+        }
+
+        async function toggleTodo(id) {
+            await fetch(API + "/" + id, {
+                method: "PATCH",
+            });
+
+            fetchTodos();
+        }
+
+        async function deleteTodo(id) {
+            await fetch(API + "/" + id, {
+                method: "DELETE",
+            });
+
+            fetchTodos();
+        }
+
+        function renderTodos() {
+            let filtered = todos;
+
+            if (currentFilter === "active") {
+                filtered = todos.filter((t) => !t.completed);
+            }
+
+            if (currentFilter === "completed") {
+                filtered = todos.filter((t) => t.completed);
+            }
+
+            if (filtered.length === 0) {
+                todoList.innerHTML = `
+            <div class="empty">
+              No tasks found
+            </div>
+        `;
+
+                return;
+            }
+
+            todoList.innerHTML = filtered
+                .map(
+                    (todo) =>
+                        `
+        <div class="todo ${todo.completed ? "completed" : ""}">
+
+            <div class="todo-left">
+
+              <div
+                class="check"
+                onclick="toggleTodo('${todo._id}')"
+              ></div>
+
+              <div class="text">
+                ${todo.title}
+              </div>
+
+            </div>
+
+            <button
+              class="delete-btn"
+              onclick="deleteTodo('${todo._id}')"
+            >
+              ✕
+            </button>
+
+        </div>
+        `,
+                )
+                .join("");
+        }
+
+        addBtn.addEventListener("click", addTodo);
+
+        todoInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                addTodo();
+            }
+        });
+
+        filterButtons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                filterButtons.forEach((b) => b.classList.remove("active"));
+
+                btn.classList.add("active");
+
+                currentFilter = btn.dataset.filter;
+
+                renderTodos();
+            });
+        });
+
+        fetchTodos();
+    </script>
+</body>
+
+</html>
